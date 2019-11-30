@@ -1,0 +1,62 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: f8a7f8ba7cd20af98e09755083e81ad607e048ac4f8e83b249fabbaa5c31668a
+
+name:           pfga
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/shlomenu/pfga#readme>
+homepage:       https://github.com/shlomenu/pfga#readme
+bug-reports:    https://github.com/shlomenu/pfga/issues
+author:         Eli Whitehouse
+maintainer:     ebw2143@columbia.edu
+copyright:      GPLv3
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/shlomenu/pfga
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_pfga
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
+
+executable pfga-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_pfga
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , pfga
+  default-language: Haskell2010
+
+test-suite pfga-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_pfga
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , pfga
+  default-language: Haskell2010
