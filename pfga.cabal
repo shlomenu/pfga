@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f8a7f8ba7cd20af98e09755083e81ad607e048ac4f8e83b249fabbaa5c31668a
+-- hash: 1ca9b81d7e38fdccd1d4ac2d4c6a63c048f0a803505fd078048c6fb9582a1758
 
 name:           pfga
 version:        0.1.0.0
@@ -27,7 +27,7 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Robbie
   other-modules:
       Paths_pfga
   hs-source-dirs:
