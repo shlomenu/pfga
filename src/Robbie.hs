@@ -2,9 +2,9 @@ module Robbie (
   makeRW
 ) where
 
-import System.Random(randomRs, randomR, getStdRandom, StdGen, Random, RandomGen)
+import System.Random(randomRs, randomR, getStdRandom, RandomGen)
 import Data.Array.IO(IOUArray, IOArray)
-import Data.Array.MArray(readArray, writeArray, newArray, newArray_, newListArray)
+import Data.Array.MArray(readArray, writeArray, newArray_, newListArray)
 import Data.Word(Word8)
 import Data.Ratio(approxRational, numerator, denominator)
 import Control.Monad(guard, forM_)
@@ -14,17 +14,17 @@ import Data.Map(Map)
 import qualified Data.Map as M
 import Data.Maybe(catMaybes)
 
-mistakePenalty :: Int
-mistakePenalty = 5
-
-rewardCollect :: Int
-rewardCollect = 1
-
 data Sim = Wrap RobbieWorld Genome RobbieState
 type Action = (Sim -> IO Sim)
 type RobbieWorld = IOArray Int (IOUArray Int Word8) 
 type Genome = IntMap Action 
 type RobbieState = IOUArray Word8 Int 
+
+mistakePenalty :: Int
+mistakePenalty = 5
+
+rewardCollect :: Int
+rewardCollect = 1
 
 act :: Sim -> IO Sim
 act sim@(Wrap rw gnm rs) = do
@@ -49,7 +49,7 @@ access2d (x, y) rw = do
     readArray row y
 
 mvRand :: Sim -> IO Sim
-mvRand sim@(Wrap rw gnm rs) = do
+mvRand sim@(Wrap _ gnm _) = do
     r <- getStdRandom $ randomR (2,5) 
     case IM.lookup r gnm of
         (Just go) -> go sim
@@ -126,7 +126,7 @@ actMap = M.fromList $ zip [1..7] [mvRand, north, south, east, west, stay, collec
 hashLoc :: Word8 -> Word8 -> Word8 -> Word8 -> Word8 -> Int
 hashLoc h n s e w = sum $ zipWith (*) integralLoc powersOf3 where
     integralLoc = map fromIntegral [h,n,s,e,w]
-    powersOf3 = map (3^) [1..]
+    powersOf3 = iterate (3*) 1
 
 makeRW :: (RealFrac c) => Int -> c -> c -> IO RobbieWorld
 makeRW n frac eps = do 
@@ -136,13 +136,13 @@ makeRW n frac eps = do
       writeArray outer i row
       if i == 0 || i == n + 1
         then do 
-            forM_ [0..n+1] $ \i -> writeArray row i 0
+            forM_ [0..n+1] $ \j -> writeArray row j 0
         else do
             writeArray row 0 0
             writeArray row (n+1) 0
-            forM_ [1..n] $ \i -> do
+            forM_ [1..n] $ \j -> do
               r <- shift nm <$> getStdRandom (randomR (1,dnm))
-              writeArray row i r
+              writeArray row j r
     return outer
   where
     shift s x = if x > s then 1 else 2
