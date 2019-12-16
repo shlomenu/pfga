@@ -4,9 +4,7 @@ module Robbie (
  , RobbieWorld
  , RobbieState
  , Genome 
- , makeRW
- , mkGenome
- , mkRobbieState
+ , mkSim
  , act
  , crossGenomes
  , mutateGenome
@@ -24,7 +22,7 @@ import System.Random( randomRs, randomR,
 import Data.Array.MArray( readArray, writeArray, 
                           newArray_, newListArray )
 import Data.Ratio( approxRational, numerator, denominator )
-import Control.Monad( guard, forM_, forM )
+import Control.Monad( guard, forM_ )
 import Data.Maybe( catMaybes, fromJust )
 import Data.List( foldl' )
 
@@ -32,7 +30,6 @@ import Data.List( foldl' )
       type imports: 
 -}
 
-import System.Random(RandomGen)
 import Data.Array.IO(IOUArray, IOArray)
 import Data.Word(Word8)
 import Data.IntMap.Strict(IntMap)
@@ -73,6 +70,9 @@ mistakePenalty = 5
 rewardCollect :: Int
 rewardCollect = 1
 
+globalEps :: Float
+globalEps = 0.001
+
 labels :: [Label]
 labels = [MvRand, North, South, East, West, Stay, Collect]
 
@@ -109,7 +109,7 @@ mutateGenome frac eps gnm = do
         rt = approxRational frac eps
         (nm, dnm) = (numerator rt, denominator rt) 
     
-    rs <- forM [1..size] $ \_ -> randomRIO (1,dnm)
+    rs <- sequence $ replicate size $ randomRIO (1,dnm)
     g <- newStdGen
     
     let keys = map snd $ filter dropRatio $ zip rs $ IM.keys gnm 
@@ -220,15 +220,25 @@ fetchRel (i, j) rs rw = do
 -----------------------------------------------------------------
 {- "Constructors" -}
 
-mkRobbieState :: (RandomGen g) => Int -> g -> IO RobbieState 
-mkRobbieState n g = newListArray (0,2) es where
-    es = 0 : (rs ++ [0])
-    rs = take 2 $ randomRs (1,n) g
+mkSim :: Int -> Float -> IO Sim
+mkSim n frac = do
+  rw <- makeRW n frac globalEps
+  gnm <- mkGenome
+  rs <- mkRobbieState n
+  return $ Wrap rw gnm rs
 
-mkGenome :: (RandomGen g) => g -> Genome
-mkGenome g = IM.fromList $ zip hashes lbls where
-  lbls = noNothingLkup labelMap M.lookup rs
-  rs = randomRs (1,7) g
+mkRobbieState :: Int -> IO RobbieState 
+mkRobbieState n = do 
+    rs <- sequence $ replicate 2 $ randomRIO (1,n)
+    let es = 0 : (rs ++ [0])
+    newListArray (0,2) es
+
+mkGenome :: IO Genome
+mkGenome = do
+  rs <- sequence $ replicate (length hashes) $ randomRIO (1,7)
+  let gnm = IM.fromList $ zip hashes lbls 
+      lbls = noNothingLkup labelMap M.lookup rs
+  return gnm
 
 makeRW :: (RealFrac c) => Int -> c -> c -> IO RobbieWorld
 makeRW n frac eps = do 
