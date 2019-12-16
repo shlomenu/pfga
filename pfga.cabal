@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1ca9b81d7e38fdccd1d4ac2d4c6a63c048f0a803505fd078048c6fb9582a1758
+-- hash: 6d4d1668b5c0bcf4a1853ce3406db00b38670511fdeceb46bbb5c77911b4814f
 
 name:           pfga
 version:        0.1.0.0
@@ -33,7 +33,10 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
+    , containers
+    , random
   default-language: Haskell2010
 
 executable pfga-exe
@@ -44,8 +47,11 @@ executable pfga-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
+    , containers
     , pfga
+    , random
   default-language: Haskell2010
 
 test-suite pfga-test
@@ -57,6 +63,9 @@ test-suite pfga-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
+    , containers
     , pfga
+    , random
   default-language: Haskell2010
