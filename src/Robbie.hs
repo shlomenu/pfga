@@ -4,10 +4,13 @@ module Robbie (
  , RobbieWorld
  , RobbieState
  , Genome 
- , mkSim
+ , mkSimWithGenome
+ , mkGenome
  , act
  , crossGenomes
  , mutateGenome
+ , readScore
+ , ratioFromFloat
 ) where
 
 -----------------------------------------------------------------
@@ -19,6 +22,7 @@ module Robbie (
 import System.Random( randomRs, randomR, 
                       getStdRandom, randomRIO, 
                       newStdGen )
+import System.IO( hPutStrLn, stdout )
 import Data.Array.MArray( readArray, writeArray, 
                           newArray_, newListArray )
 import Data.Ratio( approxRational, numerator, denominator )
@@ -34,6 +38,7 @@ import Data.Array.IO(IOUArray, IOArray)
 import Data.Word(Word8)
 import Data.IntMap.Strict(IntMap)
 import Data.Map(Map)
+import Control.DeepSeq(NFData(..))
 
 {-
       qualified imports:
@@ -54,7 +59,13 @@ data Label = MvRand
            | West 
            | Stay 
            | Collect 
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
+
+instance NFData Label where
+  rnf a = a `seq` ()
+
+instance NFData Sim where
+  rnf (Wrap rw gnm rs) = rnf gnm `seq` rw `seq` rs `seq` ()
 
 type Action = (Sim -> IO Sim)
 type RobbieWorld = IOArray Int (IOUArray Int Word8) 
@@ -70,7 +81,7 @@ mistakePenalty = 5
 rewardCollect :: Int
 rewardCollect = 1
 
-globalEps :: Float
+globalEps :: (RealFrac c) => c
 globalEps = 0.001
 
 labels :: [Label]
@@ -88,14 +99,14 @@ hashes = do
   w <- vs
   h <- vs
   guard (h /= 0)
-  guard ((length $ filter (==0) [n, s, e, w, h]) < 3)
+  --guard ((length $ filter (==0) [n, s, e, w, h]) < 3)
   return $ hashLoc h s n e w
 
 actMap :: Map Label Action
 actMap = M.fromList $ zip labels actions
         
-labelMap :: Map Int Label
-labelMap = M.fromList $ zip [1..7] labels
+labelMap :: IntMap Label
+labelMap = IM.fromList $ zip [1..7] labels
 
 rLabelMap :: Map Label Int
 rLabelMap = M.fromList $ zip labels [1..7]
@@ -103,11 +114,10 @@ rLabelMap = M.fromList $ zip labels [1..7]
 -----------------------------------------------------------------
 {- Evolution -}
 
-mutateGenome :: (RealFrac c) => c -> c -> Genome -> IO Genome
-mutateGenome frac eps gnm = do
+mutateGenome :: (RealFrac c) => c -> Genome -> IO Genome
+mutateGenome frac gnm = do
     let size = IM.size gnm
-        rt = approxRational frac eps
-        (nm, dnm) = (numerator rt, denominator rt) 
+        (nm, dnm) = ratioFromFloat frac  
     
     rs <- sequence $ replicate size $ randomRIO (1,dnm)
     g <- newStdGen
@@ -116,7 +126,7 @@ mutateGenome frac eps gnm = do
         dropRatio (r,_) = if r > nm then False else True
         vs = noNothingLkup rLabelMap M.lookup $ noNothingLkup gnm IM.lookup keys
         mutns = mapMutants vs $ randomRs (1,7) g
-        newIMap = foldl' mdf gnm $ zip keys $ noNothingLkup labelMap M.lookup mutns
+        newIMap = foldl' mdf gnm $ zip keys $ noNothingLkup labelMap IM.lookup mutns
     
     return newIMap
 
@@ -152,11 +162,12 @@ sense :: RobbieWorld -> RobbieState -> IO Int
 sense rw rs = do 
     x <- readArray rs 1
     y <- readArray rs 2
-    hashLoc <$> access2d (x,y) rw
-      <*> access2d (x+1, y) rw
-      <*> access2d (x-1, y) rw
-      <*> access2d (x, y+1) rw
-      <*> access2d (x, y-1) rw
+    h <- access2d (x,y) rw
+    n <- access2d (x+1, y) rw
+    s <- access2d (x-1, y) rw
+    e <- access2d (x, y+1) rw
+    w <- access2d (x, y-1) rw
+    return $ hashLoc h n s e w 
 
 access2d :: (Int, Int) -> RobbieWorld -> IO Word8
 access2d (x, y) rw = do
@@ -164,10 +175,10 @@ access2d (x, y) rw = do
     readArray row y
 
 mvRand :: Action
-mvRand sim@(Wrap _ gnm _) = do
+mvRand sim = do
     r <- getStdRandom $ randomR (2,5) 
     let go = fromJust $ M.lookup lbl actMap
-        lbl = fromJust $ IM.lookup r gnm
+        lbl = fromJust $ IM.lookup r labelMap
     go sim
       
 collect :: Action
@@ -220,10 +231,9 @@ fetchRel (i, j) rs rw = do
 -----------------------------------------------------------------
 {- "Constructors" -}
 
-mkSim :: Int -> Float -> IO Sim
-mkSim n frac = do
-  rw <- makeRW n frac globalEps
-  gnm <- mkGenome
+mkSimWithGenome :: Int -> Float -> Genome -> IO Sim
+mkSimWithGenome n frac gnm = do
+  rw <- makeRW n frac
   rs <- mkRobbieState n
   return $ Wrap rw gnm rs
 
@@ -237,11 +247,11 @@ mkGenome :: IO Genome
 mkGenome = do
   rs <- sequence $ replicate (length hashes) $ randomRIO (1,7)
   let gnm = IM.fromList $ zip hashes lbls 
-      lbls = noNothingLkup labelMap M.lookup rs
+      lbls = noNothingLkup labelMap IM.lookup rs
   return gnm
 
-makeRW :: (RealFrac c) => Int -> c -> c -> IO RobbieWorld
-makeRW n frac eps = do 
+makeRW :: (RealFrac c) => Int -> c -> IO RobbieWorld
+makeRW n frac = do 
     outer <- newArray_ (0,n+1) 
     forM_ [0..n+1] $ \i -> do
       row <- newArray_ (0,n+1)
@@ -258,8 +268,7 @@ makeRW n frac eps = do
     return outer
   where
     shift s x = if x > s then 1 else 2
-    nm  = numerator $ approxRational frac eps
-    dnm = denominator $ approxRational frac eps
+    (nm, dnm) = ratioFromFloat frac
 
 -----------------------------------------------------------------
 {- Utilities & Abbreviations -}
@@ -272,6 +281,12 @@ hashLoc h n s e w = sum $ zipWith (*) integralLoc powersOf3 where
     integralLoc = map fromIntegral [h,n,s,e,w]
     powersOf3 = iterate (3*) 1
 
+readScore :: Sim -> IO Int
+readScore (Wrap _ _ rs) = readArray rs 0
+
+ratioFromFloat :: (RealFrac c) => c -> (Integer, Integer)
+ratioFromFloat frac = (numerator rt, denominator rt) 
+  where rt = approxRational frac globalEps
 
 -----------------------------------------------------------------
 -----------------------------------------------------------------
