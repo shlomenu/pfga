@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6d4d1668b5c0bcf4a1853ce3406db00b38670511fdeceb46bbb5c77911b4814f
+-- hash: 6b4fde76a4e24a11fac4362206d54d1548af8dfbe7eee63aa4f9928d3b8e7fe3
 
 name:           pfga
 version:        0.1.0.0
@@ -36,7 +36,15 @@ library
       array
     , base >=4.7 && <5
     , containers
+    , deepseq
+    , monad-loops
+    , monad-par
+    , monad-par-extras
+    , mtl
     , random
+    , random-extras
+    , random-fu
+    , time
   default-language: Haskell2010
 
 executable pfga-exe
@@ -45,13 +53,21 @@ executable pfga-exe
       Paths_pfga
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -O2 -Wall -eventlog
   build-depends:
       array
     , base >=4.7 && <5
     , containers
+    , deepseq
+    , monad-loops
+    , monad-par
+    , monad-par-extras
+    , mtl
     , pfga
     , random
+    , random-extras
+    , random-fu
+    , time
   default-language: Haskell2010
 
 test-suite pfga-test
@@ -66,6 +82,14 @@ test-suite pfga-test
       array
     , base >=4.7 && <5
     , containers
+    , deepseq
+    , monad-loops
+    , monad-par
+    , monad-par-extras
+    , mtl
     , pfga
     , random
+    , random-extras
+    , random-fu
+    , time
   default-language: Haskell2010
