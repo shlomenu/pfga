@@ -1,8 +1,5 @@
 module Robbie (
    Sim
- , Label
- , RobbieWorld
- , RobbieState
  , Genome 
  , mkSimWithGenome
  , mkGenome
@@ -22,7 +19,6 @@ module Robbie (
 import System.Random( randomRs, randomR, 
                       getStdRandom, randomRIO, 
                       newStdGen )
-import System.IO( hPutStrLn, stdout )
 import Data.Array.MArray( readArray, writeArray, 
                           newArray_, newListArray )
 import Data.Ratio( approxRational, numerator, denominator )
@@ -49,7 +45,7 @@ import qualified Data.Map as M
 import qualified Data.IntSet as IS
 
 -----------------------------------------------------------------
-{- Constructors & Type Synonyms -}
+{- Types, Instances, Type Synonyms -}
 
 data Sim = Wrap RobbieWorld Genome RobbieState
 data Label = MvRand 
@@ -99,7 +95,7 @@ hashes = do
   w <- vs
   h <- vs
   guard (h /= 0)
-  --guard ((length $ filter (==0) [n, s, e, w, h]) < 3)
+  guard ((length $ filter (==0) [n, s, e, w, h]) < 3)
   return $ hashLoc h s n e w
 
 actMap :: Map Label Action
@@ -162,12 +158,11 @@ sense :: RobbieWorld -> RobbieState -> IO Int
 sense rw rs = do 
     x <- readArray rs 1
     y <- readArray rs 2
-    h <- access2d (x,y) rw
-    n <- access2d (x+1, y) rw
-    s <- access2d (x-1, y) rw
-    e <- access2d (x, y+1) rw
-    w <- access2d (x, y-1) rw
-    return $ hashLoc h n s e w 
+    hashLoc <$> access2d (x,y) rw
+        <*> access2d (x+1, y) rw
+        <*> access2d (x-1, y) rw
+        <*> access2d (x, y+1) rw
+        <*> access2d (x, y-1) rw
 
 access2d :: (Int, Int) -> RobbieWorld -> IO Word8
 access2d (x, y) rw = do

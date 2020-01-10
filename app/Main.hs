@@ -1,26 +1,51 @@
 module Main where
 
+-----------------------------------------------------------------
+
 import Robbie
-import System.IO(Handle, IOMode(..), openFile, hClose, hPutStrLn)
-import System.Random(randomRIO)
-import System.Environment(getProgName, getArgs)
-import Data.List(partition, isPrefixOf, sortBy)
-import Data.Time.Clock(getCurrentTime)
-import Data.Time.LocalTime(getCurrentTimeZone, utcToLocalTime)
-import Data.Array(array)
-import Data.Random(runRVar, StdRandom(..))
-import Data.Random.Extras(choicesArray)
-import Data.Maybe(catMaybes)
-import qualified Data.IntMap as IM
-import Control.Monad(sequence)
-import Control.Monad.Loops(concatM)
+
+{- 
+      function imports: 
+-}
+
+import System.Random( randomRIO )
+import System.Environment( getProgName, getArgs )
+import System.IO( openFile, hClose, hPutStrLn )
+import Data.List( partition, isPrefixOf, sortBy )
+import Data.Time.Clock( getCurrentTime )
+import Data.Time.LocalTime( getCurrentTimeZone, utcToLocalTime )
+import Data.Array( array )
+import Data.Random( runRVar )
+import Data.Random.Extras( choicesArray )
+import Data.Maybe( catMaybes )
+import Control.Monad( sequence )
+import Control.Monad.Loops( concatM )
 import Control.Monad.Par.IO()
-import Control.Monad.Par.IO(runParIO)
-import Control.Monad.Par.Combinator(parMapM)
-import Control.Monad.Trans(liftIO)
+import Control.Monad.Par.IO( runParIO )
+import Control.Monad.Par.Combinator( parMapM )
+import Control.Monad.Trans( liftIO )
+
+{- 
+      type imports: 
+-}
+
+import System.IO(Handle, IOMode(..))
+import Data.Random(StdRandom(..))
+
+{-
+      qualified imports:
+-}
+
+import qualified Data.IntMap as IM
+
+-----------------------------------------------------------------
+{- Constants -}
 
 sampleSize :: Int
 sampleSize = 10
+
+-----------------------------------------------------------------
+{- Main & Helpers -}
 
 main :: IO ()
 main = do
@@ -53,11 +78,15 @@ parseParams pn _ = err pn
 
 err :: [Char] -> a
 err pn = error $ "usage: " ++ pn ++ " " ++ errString where 
-    errString = "pop-size dim nstep ngen can-density mutn-rate crossover-rate log-frequency log-file --par" ++ 
-                "\n                  :: Int Int Int Int Float Float Float Int FilePath"
+    errString = "pop-size dim nstep ngen can-density mutn-rate crossover-rate log-frequency " ++
+                "log-file --par\n" ++ "                  " ++ 
+                ":: Int Int Int Int Float Float Float Int FilePath"
 
 initGenomes :: Int -> IO [Genome]
 initGenomes = sequence . flip replicate mkGenome
+
+-----------------------------------------------------------------
+{- Core Step of the Algorithm (Sequential and Parallel) plus a helper -}
 
 evolveS :: Int -> Int -> Int -> Float -> Float -> Float -> Handle
                   -> ((Int, Int), [Genome]) -> IO ((Int, Int), [Genome])
@@ -117,7 +146,8 @@ evolveP dim nstep lf dens mutr crossr h ((i,lastRun), gnms) = do
     let (crssNm, crssDnm) = ratioFromFloat crossr
         cross (r, (g1,g2)) = if r <= crssNm then crossGenomes g1 g2 else return (g1,g2)
     crossDraw <- sequence $ replicate (length mutants `quot` 2) $ randomRIO (1,crssDnm)
-    exchanged <- fmap mapUnpair $ runParIO $ parMapM (liftIO . cross) $ zip crossDraw (mapPair mutants)
+    let rsWMuts = zip crossDraw (mapPair mutants)
+    exchanged <- fmap mapUnpair $ runParIO $ parMapM (liftIO . cross) rsWMuts
     let newGnms = if even (length mutants) then exchanged else (last mutants) : exchanged
     return $ if i /= lastRun 
                then ((i+1,lastRun), newGnms) 
@@ -135,6 +165,9 @@ rankSel rankedIt = do
     ns = zip [1..] $ concat $ map nmods is
     opts = array (1, length ns) ns
     
+-----------------------------------------------------------------
+{- Monadic Combinators & Utilities -}
+
 mapPair :: [a] -> [(a,a)]
 mapPair (a:b:rs) = (a,b) : mapPair rs
 mapPair _ = []
@@ -151,3 +184,9 @@ iterateNM2 = flip iterateNM1
 
 iterateNM3 :: Monad m => a -> Int -> (a -> m a) -> m a
 iterateNM3 a i f = iterateNM1 f i a
+
+-----------------------------------------------------------------
+-----------------------------------------------------------------
+                    {-     Fin      -}
+-----------------------------------------------------------------
+-----------------------------------------------------------------
